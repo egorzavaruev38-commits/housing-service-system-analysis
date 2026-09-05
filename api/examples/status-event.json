@@ -1,0 +1,12 @@
+{
+  "event_id": "evt-1002",
+  "event_type": "request.status_changed",
+  "occurred_at": "2026-09-05T15:20:00Z",
+  "correlation_id": "corr-2026-0042",
+  "aggregate_id": 2,
+  "payload": {
+    "previous_status": "ASSIGNED",
+    "new_status": "IN_PROGRESS",
+    "version": 3
+  }
+}

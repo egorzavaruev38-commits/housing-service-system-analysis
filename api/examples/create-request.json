@@ -1,0 +1,23 @@
+{
+  "external_request_id": "REQ-2026-0042",
+  "category": "plumbing",
+  "description": "Протекает труба под раковиной на кухне",
+  "resident": {
+    "resident_id": "RES-101",
+    "phone": "+79990000000"
+  },
+  "property": {
+    "complex_id": "RC-01",
+    "apartment_number": "42A",
+    "floor": 7
+  },
+  "is_emergency": true,
+  "preferred_time": null,
+  "attachments": [
+    {
+      "file_name": "leak-01.jpg",
+      "content_type": "image/jpeg",
+      "url": "https://files.house-service.example/REQ-2026-0042/leak-01.jpg"
+    }
+  ]
+}

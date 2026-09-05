@@ -1,0 +1,11 @@
+{
+  "code": "INVALID_STATUS_TRANSITION",
+  "message": "Переход CREATED → COMPLETED запрещен",
+  "correlation_id": "corr-2026-0042",
+  "details": [
+    {
+      "field": "status",
+      "reason": "Допустимые переходы из CREATED: ASSIGNED, CANCELLED, REJECTED"
+    }
+  ]
+}

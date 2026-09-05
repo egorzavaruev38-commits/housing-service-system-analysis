@@ -1,0 +1,469 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Housing Service Request API",
+    "version": "1.0.0",
+    "description": "Контракт регистрации и обработки заявок жителей жилого комплекса."
+  },
+  "servers": [
+    {
+      "url": "https://api.house-service.example/v1",
+      "description": "Пример production URL"
+    }
+  ],
+  "tags": [
+    { "name": "Requests", "description": "Жизненный цикл заявок" },
+    { "name": "Health", "description": "Техническая доступность" }
+  ],
+  "paths": {
+    "/requests": {
+      "post": {
+        "tags": ["Requests"],
+        "summary": "Создать заявку",
+        "operationId": "createRequest",
+        "parameters": [
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          { "$ref": "#/components/parameters/CorrelationId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateRequest" },
+              "examples": {
+                "plumbingEmergency": {
+                  "summary": "Аварийная заявка",
+                  "value": {
+                    "external_request_id": "REQ-2026-0042",
+                    "category": "plumbing",
+                    "description": "Протекает труба под раковиной",
+                    "resident": {
+                      "resident_id": "RES-101",
+                      "phone": "+79990000000"
+                    },
+                    "property": {
+                      "complex_id": "RC-01",
+                      "apartment_number": "42A",
+                      "floor": 7
+                    },
+                    "is_emergency": true,
+                    "attachments": []
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Заявка создана или возвращен сохраненный идемпотентный результат",
+            "headers": {
+              "Location": {
+                "description": "URL созданной заявки",
+                "schema": { "type": "string" }
+              },
+              "X-Correlation-ID": { "$ref": "#/components/headers/CorrelationId" }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ServiceRequest" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        },
+        "security": [{ "bearerAuth": [] }]
+      },
+      "get": {
+        "tags": ["Requests"],
+        "summary": "Получить список заявок",
+        "operationId": "listRequests",
+        "parameters": [
+          { "$ref": "#/components/parameters/CorrelationId" },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": { "$ref": "#/components/schemas/RequestStatus" }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "schema": { "$ref": "#/components/schemas/Priority" }
+          },
+          {
+            "name": "assigned_master_id",
+            "in": "query",
+            "schema": { "type": "string", "maxLength": 64 }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "default": 1 }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Страница заявок",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/RequestPage" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/requests/{requestId}": {
+      "get": {
+        "tags": ["Requests"],
+        "summary": "Получить заявку",
+        "operationId": "getRequest",
+        "parameters": [
+          { "$ref": "#/components/parameters/RequestId" },
+          { "$ref": "#/components/parameters/CorrelationId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Заявка найдена",
+            "headers": {
+              "ETag": {
+                "description": "Текущая версия ресурса",
+                "schema": { "type": "string", "example": "\"3\"" }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ServiceRequest" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/requests/{requestId}/assignment": {
+      "put": {
+        "tags": ["Requests"],
+        "summary": "Назначить мастера",
+        "operationId": "assignMaster",
+        "parameters": [
+          { "$ref": "#/components/parameters/RequestId" },
+          { "$ref": "#/components/parameters/IfMatch" },
+          { "$ref": "#/components/parameters/CorrelationId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AssignmentRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Мастер назначен",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ServiceRequest" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/requests/{requestId}/status": {
+      "patch": {
+        "tags": ["Requests"],
+        "summary": "Изменить статус заявки",
+        "operationId": "changeRequestStatus",
+        "parameters": [
+          { "$ref": "#/components/parameters/RequestId" },
+          { "$ref": "#/components/parameters/IfMatch" },
+          { "$ref": "#/components/parameters/CorrelationId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChangeStatusRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Статус изменен",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ServiceRequest" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        },
+        "security": [{ "bearerAuth": [] }]
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Проверить доступность сервиса",
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Сервис доступен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["status"],
+                  "properties": {
+                    "status": { "type": "string", "const": "ok" }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Критическая зависимость недоступна",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Error" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "parameters": {
+      "RequestId": {
+        "name": "requestId",
+        "in": "path",
+        "required": true,
+        "description": "Внутренний идентификатор заявки",
+        "schema": { "type": "integer", "minimum": 1 }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "description": "Уникальный ключ одной логической операции создания",
+        "schema": { "type": "string", "minLength": 8, "maxLength": 128 }
+      },
+      "CorrelationId": {
+        "name": "X-Correlation-ID",
+        "in": "header",
+        "required": true,
+        "description": "Идентификатор сквозной диагностики",
+        "schema": { "type": "string", "minLength": 8, "maxLength": 128 }
+      },
+      "IfMatch": {
+        "name": "If-Match",
+        "in": "header",
+        "required": true,
+        "description": "Ожидаемая версия ресурса из ETag",
+        "schema": { "type": "string", "pattern": "^\\\"[1-9][0-9]*\\\"$", "example": "\"3\"" }
+      }
+    },
+    "headers": {
+      "CorrelationId": {
+        "description": "Идентификатор сквозной диагностики",
+        "schema": { "type": "string" }
+      }
+    },
+    "schemas": {
+      "Category": {
+        "type": "string",
+        "enum": ["plumbing", "electricity", "elevator", "security", "common_area", "other"]
+      },
+      "Priority": {
+        "type": "string",
+        "enum": ["low", "medium", "high", "critical"]
+      },
+      "RequestStatus": {
+        "type": "string",
+        "enum": ["CREATED", "ASSIGNED", "IN_PROGRESS", "COMPLETED", "CANCELLED", "REJECTED"]
+      },
+      "ResidentRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["resident_id", "phone"],
+        "properties": {
+          "resident_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "phone": { "type": "string", "pattern": "^\\+[1-9][0-9]{7,14}$" }
+        }
+      },
+      "PropertyRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["complex_id"],
+        "properties": {
+          "complex_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "apartment_number": { "type": ["string", "null"], "minLength": 1, "maxLength": 32 },
+          "floor": { "type": ["integer", "null"], "minimum": -5, "maximum": 200 }
+        }
+      },
+      "AttachmentInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["file_name", "content_type", "url"],
+        "properties": {
+          "file_name": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "content_type": { "type": "string", "enum": ["image/jpeg", "image/png", "application/pdf"] },
+          "url": { "type": "string", "format": "uri", "pattern": "^https://" }
+        }
+      },
+      "CreateRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["external_request_id", "category", "description", "resident", "property", "is_emergency"],
+        "properties": {
+          "external_request_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "category": { "$ref": "#/components/schemas/Category" },
+          "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "resident": { "$ref": "#/components/schemas/ResidentRef" },
+          "property": { "$ref": "#/components/schemas/PropertyRef" },
+          "is_emergency": { "type": "boolean" },
+          "preferred_time": { "type": ["string", "null"], "format": "date-time" },
+          "attachments": {
+            "type": "array",
+            "maxItems": 10,
+            "items": { "$ref": "#/components/schemas/AttachmentInput" },
+            "default": []
+          }
+        }
+      },
+      "AssignmentRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["master_id"],
+        "properties": {
+          "master_id": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "comment": { "type": ["string", "null"], "maxLength": 500 }
+        }
+      },
+      "ChangeStatusRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["status"],
+        "properties": {
+          "status": { "$ref": "#/components/schemas/RequestStatus" },
+          "comment": { "type": ["string", "null"], "maxLength": 500 }
+        }
+      },
+      "ServiceRequest": {
+        "allOf": [
+          { "$ref": "#/components/schemas/CreateRequest" },
+          {
+            "type": "object",
+            "required": ["id", "priority", "status", "version", "created_at", "updated_at"],
+            "properties": {
+              "id": { "type": "integer", "minimum": 1 },
+              "priority": { "$ref": "#/components/schemas/Priority" },
+              "status": { "$ref": "#/components/schemas/RequestStatus" },
+              "assigned_master_id": { "type": ["string", "null"] },
+              "version": { "type": "integer", "minimum": 1 },
+              "created_at": { "type": "string", "format": "date-time" },
+              "updated_at": { "type": "string", "format": "date-time" }
+            }
+          }
+        ]
+      },
+      "RequestPage": {
+        "type": "object",
+        "required": ["items", "page", "page_size", "total"],
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/ServiceRequest" } },
+          "page": { "type": "integer", "minimum": 1 },
+          "page_size": { "type": "integer", "minimum": 1, "maximum": 100 },
+          "total": { "type": "integer", "minimum": 0 }
+        }
+      },
+      "FieldError": {
+        "type": "object",
+        "required": ["field", "reason"],
+        "properties": {
+          "field": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "correlation_id"],
+        "properties": {
+          "code": { "type": "string", "example": "INVALID_STATUS_TRANSITION" },
+          "message": { "type": "string", "example": "Переход CREATED → COMPLETED запрещен" },
+          "correlation_id": { "type": "string", "example": "corr-2026-0042" },
+          "details": { "type": "array", "items": { "$ref": "#/components/schemas/FieldError" }, "default": [] }
+        }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Запрос невозможно разобрать",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Unauthorized": {
+        "description": "Отсутствует или недействителен токен",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Forbidden": {
+        "description": "Недостаточно прав",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "NotFound": {
+        "description": "Заявка или связанный объект не найдены",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "Conflict": {
+        "description": "Конфликт версии, ключа идемпотентности, внешнего ID или статуса",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "ValidationError": {
+        "description": "Данные нарушают контракт или бизнес-правило",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      },
+      "InternalError": {
+        "description": "Непредвиденная ошибка",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+      }
+    }
+  }
+}
